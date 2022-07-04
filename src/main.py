@@ -1,8 +1,11 @@
+
 import discord
 import gpiozero
 import json
 import time
+from gpiozero.pins.pigpio import PiGPIOFactory
 
+gpiozero.Device.pin_factory = PiGPIOFactory()
 
 class SlowCookerBot(discord.Client):
 
@@ -10,14 +13,15 @@ class SlowCookerBot(discord.Client):
         super().__init__()
         self.user_id = user_id
         
-        #self.servo = gpiozero.Servo(17)
-        self.off = 15
-        self.low = 30
-        self.medium = 45
-        self.warm = 60
+        self.servo = gpiozero.AngularServo(13, min_angle=-90, max_angle=90)
+        self.off = -54
+        self.low = -18
+        self.medium = 18
+        self.warm = 54
         
         self.start_time = 0
         self.status = "off"
+        self.servo.angle = self.off
 
     async def on_ready(self):
         print('Logged on as', self.user)
@@ -35,7 +39,8 @@ class SlowCookerBot(discord.Client):
                     await message.channel.send("Turned off. Time elapsed: {}".format(formatTime(time.time() - self.start_time)))
                     self.start_time = 0
                     self.status = "off"
-                    
+                    self.servo.angle = self.off
+
             elif message.content == "!low":
                 if self.start_time == 0:
                     await message.channel.send("Turned on. Setting temperature to low")
@@ -43,7 +48,8 @@ class SlowCookerBot(discord.Client):
                     await message.channel.send("Setting temperature to low. Time elapsed: {}".format(formatTime(time.time() - self.start_time)))
                 self.start_time = time.time()
                 self.status = "low"
-                
+                self.servo.angle = self.low
+		
             elif message.content == "!medium":
                 if self.start_time == 0:
                     await message.channel.send("Turned on. Setting temperature to medium")
@@ -51,6 +57,7 @@ class SlowCookerBot(discord.Client):
                     await message.channel.send("Setting temperature to medium. Time elapsed: {}".format(formatTime(time.time() - self.start_time)))
                 self.start_time = time.time()
                 self.status = "medium"
+                self.servo.angle = self.medium
                 
             elif message.content == "!warm":
                 if self.start_time == 0:
@@ -59,13 +66,15 @@ class SlowCookerBot(discord.Client):
                     await message.channel.send("Set to keep warm. Time elapsed: {}".format(formatTime(time.time() - self.start_time)))
                 self.start_time = time.time()
                 self.status = "warm"
+                self.servo.angle = self.warm
                 
             elif message.content == "!status":
                 await message.channel.send("Current status: {}".format(self.status)) # self.servo.value))
                 await message.channel.send("Time elapsed: {}".format(time.time() - self.start_time))
                 
         else:
-            await message.channel.send("You do not have slowcooker privileges.")
+            if message.content in ["!low", "!high", "!warm", "!off", "!status"]:
+            	await message.channel.send("You do not have slowcooker privileges.")
 
 
 def getConfig():
